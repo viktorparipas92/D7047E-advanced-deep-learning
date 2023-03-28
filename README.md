@@ -1,1 +1,1 @@
-# D7047E-advance-deep-learning
+# D7047E-advanced-deep-learning
