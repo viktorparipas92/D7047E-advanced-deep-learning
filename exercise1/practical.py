@@ -3,7 +3,7 @@
 
 # # Baseline CNN with stochastic gradient descent
 
-# In[8]:
+# In[1]:
 
 
 import torch
@@ -11,11 +11,12 @@ from torch import nn, no_grad
 from torch.nn import Conv2d, CrossEntropyLoss, LeakyReLU, Linear, MaxPool2d
 from torch.optim import SGD
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 
-# In[9]:
+# In[2]:
 
 
 transform = transforms.Compose([
@@ -27,7 +28,7 @@ cifar_10_training_data = CIFAR10('datasets/', download=True, transform=transform
 cifar_10_test_data = CIFAR10('datasets/', train=False, download=True, transform=transform)
 
 
-# In[10]:
+# In[3]:
 
 
 train_loader = DataLoader(cifar_10_training_data, batch_size=4, num_workers=2)
@@ -35,7 +36,13 @@ train_loader = DataLoader(cifar_10_training_data, batch_size=4, num_workers=2)
 test_loader = DataLoader(cifar_10_test_data, batch_size=4, num_workers=2)
 
 
-# In[24]:
+# In[4]:
+
+
+writer = SummaryWriter()
+
+
+# In[5]:
 
 
 num_input_channels = 3
@@ -66,6 +73,8 @@ class Net(nn.Module):
             num_conv2_channels * conv_kernel_size * conv_kernel_size, fc1_output_size)
         self.fc2 = Linear(fc1_output_size, fc2_output_size)
         self.fc3 = Linear(fc2_output_size, num_output_classes)
+
+        self.name = kwargs.pop('name', '')
         self.relu = activation(**kwargs)
 
     def forward(self, x):
@@ -83,12 +92,12 @@ class Net(nn.Module):
 
 # Training the classifier
 
-# In[15]:
+# In[6]:
 
 
 def train_model(data_loader, network, optimizer, loss_function):
     for epoch in range(NUMBER_OF_EPOCHS):
-        running_loss = 0.0
+        running_loss = epoch_loss = 0.
         for i, data in enumerate(data_loader):
             inputs, labels = data
             optimizer.zero_grad()
@@ -99,20 +108,25 @@ def train_model(data_loader, network, optimizer, loss_function):
             optimizer.step()
 
             running_loss += loss.item()
+            epoch_loss += loss.item()
             if i % BATCH_TO_PRINT == BATCH_TO_PRINT - 1:
-                print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}")
+                print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / BATCH_TO_PRINT:.3f}")
                 running_loss = 0.0
 
+        writer.add_scalar(f'Loss/train: {network.name}', epoch_loss / len(data_loader), epoch)
+        print(f"[{epoch + 1}] loss: {epoch_loss / len(data_loader):.3f}")
+
+    writer.flush()
     return network
 
 
-# In[25]:
+# In[7]:
 
 
-net = Net(negative_slope=0.1)
+net = Net(negative_slope=0.1, name='Baseline model')
 
 
-# In[12]:
+# In[8]:
 
 
 NUMBER_OF_EPOCHS = 10
@@ -128,7 +142,7 @@ trained_net = train_model(train_loader, net, optimizer, criterion)
 
 # Calculate test accuracy
 
-# In[19]:
+# In[9]:
 
 
 def calculate_test_accuracy(test_loader, network):
@@ -145,7 +159,7 @@ def calculate_test_accuracy(test_loader, network):
     return correct / total
 
 
-# In[13]:
+# In[10]:
 
 
 accuracy = calculate_test_accuracy(test_loader, net)
@@ -157,19 +171,19 @@ print(f'Accuracy of the network on the test images: {100 * accuracy} %')
 
 # # Swapping the optimizer for ADAM
 
-# In[22]:
+# In[11]:
 
 
 from torch.optim import Adam
 
 
-new_network = Net()
+new_network = Net(name='Model used with ADAM')
 adam_optimizer = Adam(new_network.parameters())
 
 trained_model_with_adam = train_model(train_loader, new_network, adam_optimizer, criterion)
 
 
-# In[23]:
+# In[12]:
 
 
 accuracy = calculate_test_accuracy(test_loader, new_network)
@@ -181,23 +195,23 @@ print(f'Accuracy of the network on the test images: {100 * accuracy}%')
 
 # # Swapping the activation function for tanh
 
-# In[27]:
+# In[13]:
 
 
 from torch.nn import Tanh
 
 
-network_with_tanh = Net(Tanh)
+network_with_tanh = Net(Tanh, name='Model with tanh/ADAM')
 
 
-# In[28]:
+# In[14]:
 
 
 adam_optimizer = Adam(network_with_tanh.parameters())
 _ = train_model(train_loader, network_with_tanh, adam_optimizer, criterion)
 
 
-# In[32]:
+# In[15]:
 
 
 accuracy = calculate_test_accuracy(test_loader, network_with_tanh)
