@@ -67,7 +67,7 @@ writer = SummaryWriter()
 BATCH_TO_PRINT = 100
 
 
-# In[6]:
+# In[19]:
 
 
 def train_model(data_loader, network, optimizer, criterion, num_epochs=NUM_EPOCHS):
@@ -107,7 +107,7 @@ def test_model(data_loader, network):
     with torch.no_grad():
         for data in data_loader:
             images, labels = data[0].to(device), data[1].to(device)
-            outputs = alexnet(images)
+            outputs = network(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -181,3 +181,223 @@ torch.save(object_to_save, 'alexnet-feature-extracted-cifar-10.pt')
 
 test_model(test_loader, trained_network)
 
+
+# # Transfer learning from MNIST to SVHN
+
+# In[12]:
+
+
+MNIST_IMAGE_SIZE = 28
+
+num_input_channels = 1
+num_output_classes = 10
+
+num_conv1_channels = 32
+conv_kernel_size = 3
+conv_stride = 1
+conv_padding = 1
+pool_kernel_size = 2
+num_conv2_channels = 64
+
+fc1_output_size = 128
+
+dropout_rate = 0.25
+
+class CNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(
+            in_channels=num_input_channels,
+            out_channels=num_conv1_channels,
+            kernel_size=conv_kernel_size,
+            stride=conv_stride,
+            padding=conv_padding,
+        )
+        self.conv2 = nn.Conv2d(
+            in_channels=num_conv1_channels,
+            out_channels=num_conv2_channels,
+            kernel_size=conv_kernel_size,
+            stride=conv_stride,
+            padding=conv_padding,
+        )
+        self.relu = nn.ReLU()
+        self.max_pool = nn.MaxPool2d(kernel_size=pool_kernel_size)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc1 = nn.Linear(
+            num_conv2_channels * MNIST_IMAGE_SIZE**2 // pool_kernel_size**4,
+            fc1_output_size,
+        )
+        self.fc2 = nn.Linear(fc1_output_size, num_output_classes)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.max_pool(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.max_pool(x)
+        x = torch.flatten(x, start_dim=1)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+
+# Set up the dataset and data loader
+
+# In[15]:
+
+
+MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
+transform = transforms.Compose(
+    [transforms.ToTensor(), transforms.Normalize(MNIST_MEAN, MNIST_STD)]
+)
+mnist_training_data = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
+mnist_test_data = datasets.MNIST(root='./data', train=False, transform=transform, download=True)
+train_loader = torch.utils.data.DataLoader(dataset=mnist_training_data, batch_size=64, shuffle=True)
+test_loader = torch.utils.data.DataLoader(dataset=mnist_test_data, batch_size=64, shuffle=False)
+
+
+# # Instantiate the model and set up the optimizer and loss function
+
+# In[16]:
+
+
+learning_rate = 1e-3
+
+my_model = CNN()
+optimizer = optim.Adam(my_model.parameters(), lr=learning_rate)
+criterion = nn.CrossEntropyLoss()
+
+
+# In[17]:
+
+
+trained_network = train_model(train_loader, my_model, optimizer, loss_function, num_epochs=4)
+
+
+# In[22]:
+
+
+torch.save(trained_network.state_dict(), 'my-cnn-mnist.pt')
+
+
+# In[23]:
+
+
+test_model(test_loader, trained_network)
+
+
+# ## Use pre-trained model for SVNH dataset
+
+# In[41]:
+
+
+pretrained_model = CNN()
+pretrained_model.load_state_dict(torch.load('my-cnn-mnist.pt'))
+
+# Freeze the weights of the pretrained model
+for param in pretrained_model.parameters():
+    param.requires_grad = False
+
+
+# Modify the last layer of the model to output 10 classes instead of 2
+
+# In[46]:
+
+
+pretrained_model.fc1.requires_grad = True
+
+# Modify the first convolutional layer to accept 3 channels instead of 1
+pretrained_model.conv1 = nn.Conv2d(
+    in_channels=3,
+    out_channels=num_conv1_channels,
+    kernel_size=conv_kernel_size,
+    stride=conv_stride,
+    padding=conv_padding,
+)
+SVHN_IMAGE_SIZE = 32
+pretrained_model.fc1 = nn.Linear(
+    num_conv2_channels * SVHN_IMAGE_SIZE**2 // pool_kernel_size**4,
+    fc1_output_size,
+)
+
+
+# Set up the dataset and data loader
+
+# In[47]:
+
+
+transform = transforms.Compose([
+    transforms.Resize((SVHN_IMAGE_SIZE, SVHN_IMAGE_SIZE)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+])
+svhn_train_data = datasets.SVHN(root='./data', split='train', transform=transform, download=True)
+svhn_test_data = datasets.SVHN(root='./data', split='test', transform=transform, download=True)
+svhn_train_loader = torch.utils.data.DataLoader(
+    dataset=svhn_train_data, batch_size=64, shuffle=True
+)
+svhn_test_loader = torch.utils.data.DataLoader(
+    dataset=svhn_test_data, batch_size=64, shuffle=False
+)
+
+
+# Set up the optimizer and loss function
+
+# In[48]:
+
+
+optimizer = optim.Adam(pretrained_model.fc2.parameters(), lr=learning_rate)
+
+
+# In[49]:
+
+
+trained_network = train_model(
+    svhn_train_loader, pretrained_model, optimizer, loss_function, num_epochs=4
+)
+torch.save(trained_network.state_dict(), 'my-cnn-mnist-pretrained-svhn.pt')
+
+
+# In[50]:
+
+
+test_model(svhn_test_loader, trained_network)
+
+
+# ## Transfer learning
+
+# In[52]:
+
+
+pretrained_model = CNN()
+pretrained_model.load_state_dict(torch.load('my-cnn-mnist.pt'))
+
+pretrained_model.conv1 = nn.Conv2d(
+    in_channels=3,
+    out_channels=num_conv1_channels,
+    kernel_size=conv_kernel_size,
+    stride=conv_stride,
+    padding=conv_padding,
+)
+SVHN_IMAGE_SIZE = 32
+pretrained_model.fc1 = nn.Linear(
+    num_conv2_channels * SVHN_IMAGE_SIZE**2 // pool_kernel_size**4,
+    fc1_output_size,
+)
+optimizer = optim.Adam(pretrained_model.fc2.parameters(), lr=learning_rate)
+trained_network = train_model(
+    svhn_train_loader, pretrained_model, optimizer, loss_function, num_epochs=4
+)
+torch.save(trained_network.state_dict(), 'my-cnn-mnist-transfer-svhn.pt')
+
+
+# In[53]:
+
+
+test_model(svhn_test_loader, trained_network)
+
+
+# 
