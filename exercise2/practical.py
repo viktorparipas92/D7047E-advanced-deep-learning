@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import torch
@@ -13,13 +13,13 @@ from torchvision import datasets, models, transforms
 
 # # Transfer learning on the CIFAR-10 dataset
 
-# In[ ]:
+# In[2]:
 
 
 # Hyperparameters
 learning_rate = 1e-4
 batch_size = 50
-num_epochs = 4  # alter this afterwards
+NUM_EPOCHS = 4  # alter this afterwards
 momentum = 0.9
 loss_function = nn.CrossEntropyLoss()
 
@@ -27,7 +27,7 @@ loss_function = nn.CrossEntropyLoss()
 NUM_CLASSES = 10
 
 
-# In[ ]:
+# In[3]:
 
 
 RESIZE_SIZE = 70
@@ -55,22 +55,22 @@ test_loader = DataLoader(
 
 # Training-Testing Functions
 
-# In[ ]:
+# In[4]:
 
 
 writer = SummaryWriter()
 
 
-# In[ ]:
+# In[5]:
 
 
 BATCH_TO_PRINT = 100
 
 
-# In[ ]:
+# In[6]:
 
 
-def train_model(data_loader, network, optimizer, criterion):
+def train_model(data_loader, network, optimizer, criterion, num_epochs=NUM_EPOCHS):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     network.to(device)
     network.train()
@@ -117,7 +117,7 @@ def test_model(data_loader, network):
 
 # ## Fine-tuning the model
 
-# In[ ]:
+# In[7]:
 
 
 alexnet = models.alexnet(weights='AlexNet_Weights.DEFAULT')
@@ -126,10 +126,10 @@ alexnet.classifier.add_module('6', nn.Linear(4096, NUM_CLASSES))
 optimizer = optim.SGD(alexnet.parameters(), lr=learning_rate, momentum=momentum)
 
 
-# In[ ]:
+# In[8]:
 
 
-trained_network = train_model(train_loader, alexnet, optimizer, loss_function)
+trained_network = train_model(train_loader, alexnet, optimizer, loss_function, num_epochs=2)
 object_to_save = {
     'model_state_dict': trained_network.state_dict(),
     'optimizer_state_dict': optimizer.state_dict(),
@@ -140,12 +140,23 @@ torch.save(object_to_save, 'alexnet-fine-tuned-cifar-10.pt')
 # In[ ]:
 
 
+trained_network = train_model(train_loader, alexnet, optimizer, loss_function, num_epochs=2)
+object_to_save = {
+    'model_state_dict': trained_network.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+}
+torch.save(object_to_save, 'alexnet-fine-tuned-cifar-10.pt')
+
+
+# In[9]:
+
+
 test = test_model(test_loader, trained_network)
 
 
 # ## Feature extraction
 
-# In[ ]:
+# In[10]:
 
 
 alexnet = models.alexnet(weights='AlexNet_Weights.DEFAULT')
@@ -163,4 +174,10 @@ object_to_save = {
     'optimizer_state_dict': optimizer.state_dict(),
 }
 torch.save(object_to_save, 'alexnet-feature-extracted-cifar-10.pt')
+
+
+# In[11]:
+
+
+test_model(test_loader, trained_network)
 
