@@ -183,7 +183,7 @@ test_model(test_loader, trained_network)
 
 # # Transfer learning from MNIST to SVHN
 
-# In[12]:
+# In[13]:
 
 
 MNIST_IMAGE_SIZE = 28
@@ -245,7 +245,7 @@ class CNN(nn.Module):
 
 # Set up the dataset and data loader
 
-# In[15]:
+# In[14]:
 
 
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
@@ -258,9 +258,9 @@ train_loader = torch.utils.data.DataLoader(dataset=mnist_training_data, batch_si
 test_loader = torch.utils.data.DataLoader(dataset=mnist_test_data, batch_size=64, shuffle=False)
 
 
-# # Instantiate the model and set up the optimizer and loss function
+# Instantiate the model and set up the optimizer and loss function
 
-# In[16]:
+# In[15]:
 
 
 learning_rate = 1e-3
@@ -270,19 +270,19 @@ optimizer = optim.Adam(my_model.parameters(), lr=learning_rate)
 criterion = nn.CrossEntropyLoss()
 
 
+# In[16]:
+
+
+trained_network = train_model(train_loader, my_model, optimizer, loss_function)
+
+
 # In[17]:
-
-
-trained_network = train_model(train_loader, my_model, optimizer, loss_function, num_epochs=4)
-
-
-# In[22]:
 
 
 torch.save(trained_network.state_dict(), 'my-cnn-mnist.pt')
 
 
-# In[23]:
+# In[18]:
 
 
 test_model(test_loader, trained_network)
