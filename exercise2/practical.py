@@ -155,7 +155,7 @@ test = test_model(test_loader, trained_network)
 
 # ## Feature extraction
 
-# In[10]:
+# In[11]:
 
 
 alexnet = models.alexnet(weights='AlexNet_Weights.DEFAULT')
@@ -175,7 +175,7 @@ object_to_save = {
 torch.save(object_to_save, 'alexnet-feature-extracted-cifar-10.pt')
 
 
-# In[11]:
+# In[12]:
 
 
 test_model(test_loader, trained_network)
