@@ -11,15 +11,27 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, models, transforms
 
 
-# # Transfer learning on the CIFAR-10 dataset
+# GPU device if possible
 
 # In[2]:
+
+
+device = torch.device(
+    'cuda' if torch.cuda.is_available()
+    else 'mps' if torch.backends.mps.is_available()
+    else 'cpu'
+)
+
+
+# # Transfer learning on the CIFAR-10 dataset
+
+# In[3]:
 
 
 # Hyperparameters
 learning_rate = 1e-4
 batch_size = 50
-NUM_EPOCHS = 4  # alter this afterwards
+NUM_EPOCHS = 10
 momentum = 0.9
 loss_function = nn.CrossEntropyLoss()
 
@@ -27,7 +39,7 @@ loss_function = nn.CrossEntropyLoss()
 NUM_CLASSES = 10
 
 
-# In[3]:
+# In[4]:
 
 
 RESIZE_SIZE = 70
@@ -55,24 +67,23 @@ test_loader = DataLoader(
 
 # Training-Testing Functions
 
-# In[4]:
+# In[5]:
 
 
 writer = SummaryWriter()
 
 
-# In[5]:
+# In[6]:
 
 
 BATCH_TO_PRINT = 100
 
 
-# In[19]:
+# In[7]:
 
 
 def train_model(data_loader, network, optimizer, criterion, num_epochs=NUM_EPOCHS):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    network.to(device)
+    network = network.to(device)
     network.train()
     for epoch in range(num_epochs):
         running_loss = epoch_loss = 0.
@@ -99,8 +110,7 @@ def train_model(data_loader, network, optimizer, criterion, num_epochs=NUM_EPOCH
 
 
 def test_model(data_loader, network):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    network.to(device)
+    network = network.to(device)
     network.eval()
     correct = 0
     total = 0
@@ -117,7 +127,7 @@ def test_model(data_loader, network):
 
 # ## Fine-tuning the model
 
-# In[7]:
+# In[8]:
 
 
 alexnet = models.alexnet(weights='AlexNet_Weights.DEFAULT')
@@ -126,29 +136,18 @@ alexnet.classifier.add_module('6', nn.Linear(4096, NUM_CLASSES))
 optimizer = optim.SGD(alexnet.parameters(), lr=learning_rate, momentum=momentum)
 
 
-# In[8]:
-
-
-trained_network = train_model(train_loader, alexnet, optimizer, loss_function, num_epochs=2)
-object_to_save = {
-    'model_state_dict': trained_network.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-}
-torch.save(object_to_save, 'alexnet-fine-tuned-cifar-10.pt')
-
-
-# In[ ]:
-
-
-trained_network = train_model(train_loader, alexnet, optimizer, loss_function, num_epochs=2)
-object_to_save = {
-    'model_state_dict': trained_network.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-}
-torch.save(object_to_save, 'alexnet-fine-tuned-cifar-10.pt')
-
-
 # In[9]:
+
+
+trained_network = train_model(train_loader, alexnet, optimizer, loss_function)
+object_to_save = {
+    'model_state_dict': trained_network.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+}
+torch.save(object_to_save, 'alexnet-fine-tuned-cifar-10.pt')
+
+
+# In[10]:
 
 
 test = test_model(test_loader, trained_network)
