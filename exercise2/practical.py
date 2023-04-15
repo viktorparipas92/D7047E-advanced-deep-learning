@@ -13,7 +13,7 @@ from torchvision import datasets, models, transforms
 
 # GPU device if possible
 
-# In[2]:
+# In[16]:
 
 
 device = torch.device(
@@ -290,7 +290,7 @@ test_model(test_loader, trained_network)
 
 # ## Use pre-trained model for SVNH dataset
 
-# In[9]:
+# In[21]:
 
 
 pretrained_model = CNN()
@@ -303,7 +303,7 @@ for param in pretrained_model.parameters():
 
 # Load and transform SVHN dataset
 
-# In[10]:
+# In[22]:
 
 
 SVHN_IMAGE_SIZE = 32
@@ -328,7 +328,7 @@ svhn_test_loader = torch.utils.data.DataLoader(
 
 # Unfreeze last layer
 
-# In[11]:
+# In[23]:
 
 
 pretrained_model.fc2.requires_grad_(True)
@@ -336,19 +336,13 @@ pretrained_model.fc2.requires_grad_(True)
 
 # Set up the optimizer and loss function
 
-# In[12]:
-
-
-device = 'cpu'
-
-
-# In[13]:
+# In[24]:
 
 
 optimizer = optim.Adam(pretrained_model.fc2.parameters(), lr=learning_rate)
 
 
-# In[14]:
+# In[25]:
 
 
 trained_network = train_model(
@@ -357,7 +351,7 @@ trained_network = train_model(
 torch.save(trained_network.state_dict(), 'my-cnn-mnist-pretrained-svhn.pt')
 
 
-# In[15]:
+# In[26]:
 
 
 test_model(svhn_test_loader, trained_network)
@@ -365,7 +359,7 @@ test_model(svhn_test_loader, trained_network)
 
 # ## Transfer learning
 
-# In[52]:
+# In[17]:
 
 
 pretrained_model = CNN()
