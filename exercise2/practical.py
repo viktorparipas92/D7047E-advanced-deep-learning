@@ -359,32 +359,22 @@ test_model(svhn_test_loader, trained_network)
 
 # ## Transfer learning
 
-# In[17]:
+# Re-training all layers
+
+# In[27]:
 
 
 pretrained_model = CNN()
 pretrained_model.load_state_dict(torch.load('my-cnn-mnist.pt'))
 
-pretrained_model.conv1 = nn.Conv2d(
-    in_channels=3,
-    out_channels=num_conv1_channels,
-    kernel_size=conv_kernel_size,
-    stride=conv_stride,
-    padding=conv_padding,
-)
-SVHN_IMAGE_SIZE = 32
-pretrained_model.fc1 = nn.Linear(
-    num_conv2_channels * SVHN_IMAGE_SIZE**2 // pool_kernel_size**4,
-    fc1_output_size,
-)
-optimizer = optim.Adam(pretrained_model.fc2.parameters(), lr=learning_rate)
+optimizer = optim.Adam(pretrained_model.parameters(), lr=learning_rate)
 trained_network = train_model(
-    svhn_train_loader, pretrained_model, optimizer, loss_function, num_epochs=4
+    svhn_train_loader, pretrained_model, optimizer, loss_function
 )
 torch.save(trained_network.state_dict(), 'my-cnn-mnist-transfer-svhn.pt')
 
 
-# In[53]:
+# In[28]:
 
 
 test_model(svhn_test_loader, trained_network)
