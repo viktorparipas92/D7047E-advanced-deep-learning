@@ -39,7 +39,7 @@ loss_function = nn.CrossEntropyLoss()
 NUM_CLASSES = 10
 
 
-# In[4]:
+# In[5]:
 
 
 RESIZE_SIZE = 70
@@ -67,19 +67,19 @@ test_loader = DataLoader(
 
 # Training-Testing Functions
 
-# In[5]:
+# In[4]:
 
 
 writer = SummaryWriter()
 
 
-# In[6]:
+# In[5]:
 
 
 BATCH_TO_PRINT = 100
 
 
-# In[7]:
+# In[6]:
 
 
 def train_model(data_loader, network, optimizer, criterion, num_epochs=NUM_EPOCHS):
@@ -127,7 +127,7 @@ def test_model(data_loader, network):
 
 # ## Fine-tuning the model
 
-# In[8]:
+# In[9]:
 
 
 alexnet = models.alexnet(weights='AlexNet_Weights.DEFAULT')
@@ -183,7 +183,7 @@ test_model(test_loader, trained_network)
 
 # # Transfer learning from MNIST to SVHN
 
-# In[13]:
+# In[7]:
 
 
 MNIST_IMAGE_SIZE = 28
@@ -260,7 +260,7 @@ test_loader = torch.utils.data.DataLoader(dataset=mnist_test_data, batch_size=64
 
 # Instantiate the model and set up the optimizer and loss function
 
-# In[15]:
+# In[8]:
 
 
 learning_rate = 1e-3
@@ -290,7 +290,7 @@ test_model(test_loader, trained_network)
 
 # ## Use pre-trained model for SVNH dataset
 
-# In[41]:
+# In[9]:
 
 
 pretrained_model = CNN()
@@ -301,40 +301,23 @@ for param in pretrained_model.parameters():
     param.requires_grad = False
 
 
-# Modify the last layer of the model to output 10 classes instead of 2
+# Load and transform SVHN dataset
 
-# In[46]:
+# In[10]:
 
 
-pretrained_model.fc1.requires_grad = True
-
-# Modify the first convolutional layer to accept 3 channels instead of 1
-pretrained_model.conv1 = nn.Conv2d(
-    in_channels=3,
-    out_channels=num_conv1_channels,
-    kernel_size=conv_kernel_size,
-    stride=conv_stride,
-    padding=conv_padding,
-)
 SVHN_IMAGE_SIZE = 32
-pretrained_model.fc1 = nn.Linear(
-    num_conv2_channels * SVHN_IMAGE_SIZE**2 // pool_kernel_size**4,
-    fc1_output_size,
-)
-
-
-# Set up the dataset and data loader
-
-# In[47]:
-
 
 transform = transforms.Compose([
-    transforms.Resize((SVHN_IMAGE_SIZE, SVHN_IMAGE_SIZE)),
+    transforms.Grayscale(),
+    transforms.Resize((MNIST_IMAGE_SIZE, MNIST_IMAGE_SIZE)),
     transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    transforms.Normalize((0.5,), (0.5, )),
 ])
-svhn_train_data = datasets.SVHN(root='./data', split='train', transform=transform, download=True)
-svhn_test_data = datasets.SVHN(root='./data', split='test', transform=transform, download=True)
+svhn_train_data = datasets.SVHN(
+    root='./data/svhn', split='train', transform=transform, download=True)
+svhn_test_data = datasets.SVHN(
+    root='./data/svhn', split='test', transform=transform, download=True)
 svhn_train_loader = torch.utils.data.DataLoader(
     dataset=svhn_train_data, batch_size=64, shuffle=True
 )
@@ -343,24 +326,38 @@ svhn_test_loader = torch.utils.data.DataLoader(
 )
 
 
+# Unfreeze last layer
+
+# In[11]:
+
+
+pretrained_model.fc2.requires_grad_(True)
+
+
 # Set up the optimizer and loss function
 
-# In[48]:
+# In[12]:
+
+
+device = 'cpu'
+
+
+# In[13]:
 
 
 optimizer = optim.Adam(pretrained_model.fc2.parameters(), lr=learning_rate)
 
 
-# In[49]:
+# In[14]:
 
 
 trained_network = train_model(
-    svhn_train_loader, pretrained_model, optimizer, loss_function, num_epochs=4
+    svhn_train_loader, pretrained_model, optimizer, loss_function
 )
 torch.save(trained_network.state_dict(), 'my-cnn-mnist-pretrained-svhn.pt')
 
 
-# In[50]:
+# In[15]:
 
 
 test_model(svhn_test_loader, trained_network)
