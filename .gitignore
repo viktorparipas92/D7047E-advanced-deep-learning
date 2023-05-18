@@ -8,5 +8,13 @@
 profile_default/
 ipython_config.py
 
+# PyCharm
+__pycache__/
+
 # Datasets
 */dataset/*
+*/data/*
+
+# Model files
+*.pt
+*.pth
