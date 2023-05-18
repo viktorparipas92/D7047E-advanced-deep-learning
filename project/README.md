@@ -17,3 +17,15 @@ pip install -r requirements.txt
 ```
 jupyter lab
 ```
+
+# Where to store the dataset
+Create a directory called `dataset` under project then replicate the folder structure in the Box link:
+- train
+  - NORMAL
+  - PNEUMONIA
+- val
+  - NORMAL
+  - PNEUMONIA
+- test
+  - NORMAL
+  - PNEUMONIA
