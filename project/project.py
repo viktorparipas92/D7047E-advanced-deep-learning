@@ -7,7 +7,7 @@
 
 # ### Import libraries
 
-# In[1]:
+# In[34]:
 
 
 import copy
@@ -19,6 +19,9 @@ import sys
 from typing import Tuple
 
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -219,10 +222,9 @@ def train_model(
             optimizer.step()
 
             epoch_loss += training_loss.item() * len(labels)
-         
-        writer.add_scalar(
-            f'Loss/train:', epoch_loss / len(training_loader), epoch
-        )
+        
+        epoch_loss /= len(training_loader)
+        writer.add_scalar(f'Loss/train:', epoch_loss, epoch)
         print(
             f'\r[Training] Epoch [{epoch + 1} / {num_epochs}], '
             f'Epoch Loss: {epoch_loss:.6f}'
@@ -242,9 +244,8 @@ def train_model(
                     validation_prediction, labels
                 ).item() * len(labels)
 
-            writer.add_scalar(
-                f'Loss/train:', validation_loss / len(validation_loader), epoch
-            )
+            validation_loss /= len(validation_loader)
+            writer.add_scalar(f'Loss/train:', validation_loss, epoch)
             print(
                 f'\r[Validation] Epoch [{epoch + 1} / {num_epochs}], '
                 f'Validation Loss: {validation_loss:.6f}'
@@ -385,6 +386,98 @@ for model_name, model in models_to_train.items():
         NUM_EPOCHS,
     )
     torch.save(best_fine_tuned_model_state, f'best-model-{model_name}.pth')
+
+
+# ## Evaluating the models
+
+# ### Loading the best models
+
+# In[23]:
+
+
+criterion_ft = nn.CrossEntropyLoss()
+
+best_models = {}
+for model_name, model in models_to_fine_tune.items():
+    try:
+        best_model_filename = f'best-model-{model_name}.pth'
+        best_model_state = torch.load(best_model_filename)
+        if model_name.startswith('ResNet'):
+            model.fc = nn.Linear(model.fc.in_features, num_classes)
+        elif model_name == 'AlexNet':
+            model.classifier[6] = nn.Linear(
+                model.classifier[6].in_features, num_classes
+            )
+        
+        model.load_state_dict(best_model_state)
+    except Exception as e:
+        print(f'Could not load model {model_name}: {e}')
+    
+    best_models[model_name] = model
+
+list(best_models.keys())
+
+
+# ### Evaluating performance
+
+# In[27]:
+
+
+def plot_confusion_matrix_heatmap(
+    confusion_matrix: pd.DataFrame, model_name: str
+):
+    heatmap = sns.heatmap(confusion_matrix_dataframe, annot=True)
+    plt.ylabel('True label', fontsize=14, fontweight='bold')
+    plt.xlabel('Predicted label', fontsize=14, fontweight='bold')
+    plt.title(f'Confusion matrix for {model_name}')
+    plt.show()
+
+    
+def plot_mislabeled_images(
+    test_loader, y_predicted, y_true, classes=classes
+):
+    for (images, labels) in test_loader:
+        for i, (predicted_label, true_label, image, label) in enumerate(
+            zip(y_predicted, y_true, images, labels)
+        ):
+            if predicted_label != true_label:
+                plt.figure(figsize=(8, 4))
+                plt.title(
+                    f'#{i} Predicted Label: "{classes[predicted_label]}" '
+                    f'True Label: "{classes[true_label]}" '
+                )
+                plt.imshow(image.permute(1, 2, 0))
+                plt.show()
+
+
+# In[ ]:
+
+
+test_loader = DataLoader(
+    test_dataset, batch_size=50, shuffle=True
+)
+
+
+for model_name, model in best_models.items():
+    print(f'\nEvaluating model {model_name}:')
+    
+    _, _, y_true, y_predicted = test_model(
+        model, criterion_ft, test_loader
+    )
+    confusion_matrix_ = confusion_matrix(y_true, y_predicted)
+    confusion_matrix_dataframe = pd.DataFrame(
+        confusion_matrix_, 
+        index=classes,
+        columns=classes,
+    )
+
+    plot_confusion_matrix_heatmap(
+        confusion_matrix_dataframe, model_name
+    )
+    
+    # plot_mislabeled_images(
+    #     test_loader, y_predicted, y_true, classes
+    # )
 
 
 # In[ ]:
