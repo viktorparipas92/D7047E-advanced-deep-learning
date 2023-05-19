@@ -7,7 +7,7 @@
 
 # ### Import libraries
 
-# In[34]:
+# In[1]:
 
 
 import copy
@@ -318,10 +318,10 @@ def test_model(model, criterion, test_loader):
 
 # ### Hyperparameters
 
-# In[17]:
+# In[25]:
 
 
-NUM_EPOCHS = 3
+NUM_EPOCHS = 10
 LEARNING_RATE = 3e-5
 WEIGHT_DECAY = 1e-2
 
@@ -357,10 +357,11 @@ models_to_train = dict(
 list(models_to_train.keys())
 
 
-# In[21]:
+# In[26]:
 
 
 num_classes = len(classes)
+
 
 for model_name, model in models_to_train.items():
     if model_name.startswith('ResNet'):
@@ -369,6 +370,14 @@ for model_name, model in models_to_train.items():
         model.classifier[6] = nn.Linear(
             model.classifier[6].in_features, num_classes
         )
+    
+    try:
+        best_model_filename = f'best-model-{model_name}.pth'
+        best_model_state = torch.load(best_model_filename)
+        torch.load(best_model_state, f'best-model-{model_name}.pth')
+        model.load_state_dict(best_model_state)
+    except Exception:
+        pass
     
     optimizer_for_fine_tuning = torch.optim.Adam(
         model.parameters(), 
@@ -392,7 +401,7 @@ for model_name, model in models_to_train.items():
 
 # ### Loading the best models
 
-# In[23]:
+# In[27]:
 
 
 criterion_ft = nn.CrossEntropyLoss()
@@ -420,7 +429,7 @@ list(best_models.keys())
 
 # ### Evaluating performance
 
-# In[27]:
+# In[28]:
 
 
 def plot_confusion_matrix_heatmap(
@@ -450,7 +459,7 @@ def plot_mislabeled_images(
                 plt.show()
 
 
-# In[ ]:
+# In[29]:
 
 
 test_loader = DataLoader(
