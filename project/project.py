@@ -10,6 +10,8 @@
 # In[1]:
 
 
+import copy
+from itertools import islice
 import os
 from PIL import Image
 import random
@@ -18,9 +20,11 @@ from typing import Tuple
 
 import matplotlib.pyplot as plt
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 import torchvision
-from torchvision import transforms
+from torchvision import models, transforms
 from torchvision.datasets import ImageFolder
 
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -153,13 +157,13 @@ print(len(validation_dataset))
 len(test_dataset)
 
 
-# In[ ]:
+# In[10]:
 
 
 BATCH_SIZE = 50
 
 
-# In[ ]:
+# In[11]:
 
 
 training_loader = DataLoader(
@@ -173,20 +177,218 @@ test_loader = DataLoader(
 )
 
 
-# In[10]:
+# In[12]:
 
 
 classes = test_dataset.classes
 
-class_id = 0
-while class_id < len(classes):
-    for images, labels in training_loader:
-        for image, label in zip(images, labels):
-            if class_id == label:
-                plt.figure(figsize=(8, 4))
-                plt.title(f'Class: {classes[class_id]}')
-                plt.imshow(image.permute(1, 2, 0))
-                plt.show()
-                
-                class_id += 1
+
+# In[13]:
+
+
+get_ipython().run_cell_magic('script', 'false --no-raise-error', "\nclass_id = 0\nwhile class_id < len(classes):\n    for images, labels in training_loader:\n        for image, label in zip(images, labels):\n            if class_id == label:\n                plt.figure(figsize=(8, 4))\n                plt.title(f'Class: {classes[class_id]}')\n                plt.imshow(image.permute(1, 2, 0))\n                plt.show()\n                \n                class_id += 1\n")
+
+
+# ## Training models
+
+# ### Logging
+
+# In[14]:
+
+
+writer = SummaryWriter()
+
+
+# In[15]:
+
+
+def train_model(
+    model, criterion, optimizer, training_loader, validation_loader, num_epochs
+):
+    def train(epoch_loss):
+        model.train()
+        for _, (images, labels) in enumerate(training_loader):
+            images = images.to(device)
+            labels = labels.to(device)
+            optimizer.zero_grad()
+
+            training_prediction = model(images)
+            training_loss = criterion(training_prediction, labels)
+            training_loss.backward()
+            
+            optimizer.step()
+
+            epoch_loss += training_loss.item() * len(labels)
+         
+        writer.add_scalar(
+            f'Loss/train:', epoch_loss / len(training_loader), epoch
+        )
+        print(
+            f'\r[Training] Epoch [{epoch + 1} / {num_epochs}], '
+            f'Epoch Loss: {epoch_loss:.6f}'
+        )
+        
+    def validate():
+        model.eval()
+        
+        with torch.no_grad():
+            validation_loss = 0
+
+            for _, (images, labels) in enumerate(validation_loader):
+                images = images.to(device)
+                labels = labels.to(device)
+                validation_prediction = model(images)
+                validation_loss += criterion(
+                    validation_prediction, labels
+                ).item() * len(labels)
+
+            writer.add_scalar(
+                f'Loss/train:', validation_loss / len(validation_loader), epoch
+            )
+            print(
+                f'\r[Validation] Epoch [{epoch + 1} / {num_epochs}], '
+                f'Validation Loss: {validation_loss:.6f}'
+            )
+    
+        return validation_loss
+    
+    best_validation_loss = None
+
+    model = model.to(device)
+    
+    for epoch in range(num_epochs):
+        epoch_loss = 0
+        train(epoch_loss)
+        validation_loss = validate()
+
+        if best_validation_loss is None or validation_loss < best_validation_loss:
+            best_model_state = copy.deepcopy(model.state_dict())
+            print('\t Better model found')
+    
+            best_validation_loss = validation_loss
+
+    writer.flush()
+    return best_model_state
+
+
+# In[16]:
+
+
+def test_model(model, criterion, test_loader):
+    num_correct = 0
+    num_total = 0
+    test_loss = 0
+    true_labels = []
+    predicted_labels = []
+    
+    model = model.to(device)
+
+    model.eval()
+    with torch.no_grad():
+        for _, (images, labels) in enumerate(test_loader):
+            labels = labels.to(device)
+            num_total += labels.size(0)
+            true_labels.extend(labels.tolist())
+            
+            images = images.to(device)
+            prediction = model(images)
+            predicted_batch_labels = torch.argmax(prediction, dim=1)
+            num_correct += (predicted_batch_labels == labels).sum().item()
+            predicted_labels.extend(predicted_batch_labels.tolist())
+            
+            test_loss += criterion(prediction, labels).item() * len(labels)
+
+    accuracy = num_correct / num_total
+    test_loss /= num_total
+
+    print(
+        f'\nAccuracy score: {accuracy:.1%} '
+        f'({num_correct} correct out of {num_total})')
+    
+    print(f'Test loss: {test_loss:.4f}')
+
+    return (
+        accuracy, 
+        test_loss, 
+        true_labels, 
+        predicted_labels,
+    )
+
+
+# ### Hyperparameters
+
+# In[17]:
+
+
+NUM_EPOCHS = 3
+LEARNING_RATE = 3e-5
+WEIGHT_DECAY = 1e-2
+
+
+# ### Models
+
+# In[18]:
+
+
+resnet18_model = models.resnet18(weights='DEFAULT')
+resnet34_model = models.resnet34(weights='DEFAULT')
+alexnet = models.alexnet(weights='DEFAULT')
+
+models_to_fine_tune = {
+    'ResNet-18': resnet18_model,
+    # 'ResNet-34': resnet34_model,
+    # 'AlexNet': alexnet,
+}
+
+
+# In[19]:
+
+
+NUM_MODELS_TO_SKIP = 0
+
+
+# In[20]:
+
+
+models_to_train = dict(
+    islice(models_to_fine_tune.items(), NUM_MODELS_TO_SKIP, None)
+)
+list(models_to_train.keys())
+
+
+# In[21]:
+
+
+num_classes = len(classes)
+
+for model_name, model in models_to_train.items():
+    if model_name.startswith('ResNet'):
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+    elif model_name == 'AlexNet':
+        model.classifier[6] = nn.Linear(
+            model.classifier[6].in_features, num_classes
+        )
+    
+    optimizer_for_fine_tuning = torch.optim.Adam(
+        model.parameters(), 
+        lr=LEARNING_RATE, 
+        weight_decay=WEIGHT_DECAY,
+    )
+    print(f'Training {model_name}: \n')
+    
+    best_fine_tuned_model_state = train_model(
+        model, 
+        nn.CrossEntropyLoss(), 
+        optimizer_for_fine_tuning, 
+        training_loader, 
+        validation_loader, 
+        NUM_EPOCHS,
+    )
+    torch.save(best_fine_tuned_model_state, f'best-model-{model_name}.pth')
+
+
+# In[ ]:
+
+
+
 
