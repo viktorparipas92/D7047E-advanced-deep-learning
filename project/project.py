@@ -520,4 +520,72 @@ print(metrics.classification_report(y_true, y_predicted))
 # 
 # The precision value is closer to 80% which means about every fifth positive prediction is a false positive.
 # 
-# The bottleneck is the amount of false positives as we can see from the specificity value which is only 61%, meaning that 2 out of 5 healthy lungs get erroneously labeled as
+# The bottleneck is the amount of false positives as we can see from the specificity value which is only 61%, meaning that 2 out of 5 healthy lungs get erroneously labeled as affected by pneumonia.
+# 
+# The model is skewed towards providing false positives which means it can be useful as an assisted model where the positive samples are classified by human experts.
+
+# ### Change of loss function over epochs
+
+# Since the labels in the Tensorboard logging were incorrectly setup, both the training and the validation losses got logged as training losses.
+# 
+# Here are the separated results and the resulting plots about the evolution of the loss function over the 3+10 epochs of training.
+
+# In[42]:
+
+
+training_losses = [
+    8.709,
+    3.934,
+    2.976,
+    5.942,
+    3.392,
+    2.942,
+    2.109,
+    2.124,
+    1.652,
+    1.535,
+    1.521,
+    1.255,
+    1.369,
+    
+]
+validation_losses = [
+    7.315,
+    7.907,
+    14.15,
+    6.321,
+    11.47,
+    15.07,
+    3.302,
+    9.808,
+    8.380,
+    1.546,
+    0.873,
+    0.990,
+    4.65,
+]
+
+TOTAL_NUMBER_OF_EPOCHS = len(training_losses) + 1
+START_INDEX = 1
+plt.figure(figsize=(8, 6))
+plt.plot(
+    range(START_INDEX, TOTAL_NUMBER_OF_EPOCHS + START_INDEX), 
+    training_losses
+)
+plt.xlabel('Epoch')
+plt.ylabel('Training Loss')
+plt.title('Training Loss over Epochs')
+
+plt.plot(
+    range(START_INDEX, TOTAL_NUMBER_OF_EPOCHS + START_INDEX), 
+    validate_accuracy_values)
+plt.ylabel('Validation loss')
+plt.title('Validation Accuracy over Epochs')
+plt.show()
+
+
+# In[ ]:
+
+
+
+
