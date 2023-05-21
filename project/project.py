@@ -489,8 +489,35 @@ for model_name, model in best_models.items():
     # )
 
 
-# In[ ]:
+# In[39]:
 
 
+from sklearn import metrics
 
 
+recall = metrics.recall_score(y_true, y_predicted)
+print(f'The recall of the positive class is {recall:.4f}')
+
+precision = metrics.precision_score(y_true, y_predicted)
+print(f'The precision of the positive class is {precision:.4f}')
+
+specificity = metrics.recall_score(y_true, y_predicted, pos_label=0)
+print(f'The specificity is {specificity:.4f}')
+
+f1_score = metrics.f1_score(y_true, y_predicted)
+print(f'The F1-score is {f1_score:.4f}')
+
+
+# In[41]:
+
+
+print(metrics.classification_report(y_true, y_predicted))
+
+
+# The accuracy of the model is 85%, even the macro-average is 82% which is acceptable.
+# 
+# The recall value is near 100% which means almost all the positive cases are currently identified by our model.
+# 
+# The precision value is closer to 80% which means about every fifth positive prediction is a false positive.
+# 
+# The bottleneck is the amount of false positives as we can see from the specificity value which is only 61%, meaning that 2 out of 5 healthy lungs get erroneously labeled as
